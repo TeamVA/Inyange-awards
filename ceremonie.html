@@ -387,6 +387,23 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
   #printArea .cert{page-break-after:always;break-after:page}
   #printArea .cert:last-child{page-break-after:auto;break-after:auto}
 }
+.print-all{display:flex;flex-wrap:wrap;gap:12px 18px;align-items:center;padding:16px 18px;margin:0 0 16px;border:1px solid var(--gold);background:var(--warn-bg)}
+.print-all .btn{padding:14px 30px;font-size:.85rem}
+.print-all small{color:var(--muted)}
+
+/* Statut d'enregistrement en ligne */
+.sync{font-size:.72rem;font-weight:600;letter-spacing:.08em;color:var(--muted);margin:0}
+.sync.ok{color:var(--ok)}
+.sync.busy{color:var(--gold)}
+.sync.err{color:#F0A08A}
+:root[data-theme="light"] .sync.err{color:#A3301E}
+.topbar .sync{align-self:center}
+#adminSync{margin:10px 0 0;font-size:.85rem;min-height:1.3em}
+.toast{position:fixed;z-index:70;left:50%;bottom:20px;transform:translateX(-50%);width:min(420px,calc(100% - 32px));display:grid;gap:2px;text-align:left;
+  padding:14px 18px;background:var(--surface-solid);border:1px solid var(--gold);color:var(--ink);cursor:pointer;box-shadow:0 20px 50px -20px rgba(0,0,0,.8);animation:fadeUp .5s both}
+.toast b{font-family:var(--font-display);font-size:1.3rem;color:var(--gold-2);font-weight:400}
+:root[data-theme="light"] .toast b{color:var(--gold-deep)}
+.toast small{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -401,6 +418,7 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
     </div>
     <div class="tools">
       <span class="pill ok" id="lockState" hidden title="Lauréats déverrouillés sur cet appareil">Organisateur</span>
+      <span class="sync" id="syncState" hidden></span>
       <button class="btn ghost small" id="themeBtn" type="button">Thème : nuit</button>
       <button class="btn ghost small" id="soundBtn" type="button" aria-pressed="true">Son : oui</button>
       <button class="btn ghost small" id="fsBtn" type="button">Plein écran</button>
@@ -455,7 +473,7 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
 <!-- ADMINISTRATION -->
 <section id="v-admin" class="admin" hidden>
   <h2 class="big">Espace organisateur</h2>
-  <p class="muted" style="max-width:72ch">Les lauréats officiels sont déverrouillés avec votre code. Vos modifications (noms, mentions, médias, textes, certificats) sont enregistrées automatiquement dans ce navigateur : pensez à <b>exporter une sauvegarde</b> et à l’importer sur l’ordinateur qui servira à la projection.</p>
+  <p class="muted" style="max-width:72ch">Les lauréats officiels sont déverrouillés avec votre code. Vos modifications (noms, mentions, photos, vidéos, textes, certificats) sont <b>enregistrées automatiquement en ligne</b> et retrouvées sur tout appareil où vous vous connectez. Les fichiers importés sont envoyés en ligne jusqu’à 40 Mo ; pour une vidéo plus lourde, collez un lien Google Drive (partagé à « Tous les utilisateurs disposant du lien »).</p>
   <div class="toolbar">
     <button class="btn ghost small" id="adminExit" type="button">Retour à la cérémonie</button>
     <button class="btn ghost small" id="lockBtn" type="button">Verrouiller (se déconnecter)</button>
@@ -464,6 +482,7 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <button class="btn ghost small" id="resetRevealBtn" type="button">Remettre toutes les révélations à zéro</button>
   </div>
+  <p class="sync" id="adminSync" role="status"></p>
   <p class="msg" id="adminMsgTop" role="status"></p>
 
   <div class="atabs" role="tablist" aria-label="Rubriques de l’espace organisateur">
@@ -508,6 +527,10 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
 
   <div data-panel="certificats" hidden>
     <h2 class="big">Certificats officiels</h2>
+    <div class="print-all">
+      <button class="btn" id="certAllTop" type="button">Imprimer tout</button>
+      <span><b id="certCountTop"></b><br><small>Un certificat par nom, au format A4 paysage, en une seule impression.</small></span>
+    </div>
     <p class="muted" style="max-width:72ch">Un certificat par nom, au format A4 paysage. Dans la fenêtre d’impression, choisissez l’imprimante (ou « Enregistrer au format PDF »), activez <b>Graphiques d’arrière-plan</b> et désactivez les en-têtes et pieds de page.</p>
     <div class="vbox cert-cfg">
       <div class="ed-grid">
@@ -519,7 +542,7 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
         <div><label class="fl" for="cfS2r">Signature 2 : fonction</label><input class="field" id="cfS2r" data-cf="s2r"></div>
       </div>
       <label class="ck"><input type="checkbox" id="cfCite" data-cf="cite"> Ajouter la mention du lauréat sur le certificat</label>
-      <div class="actions" style="justify-content:flex-start"><button class="btn small" id="certAll" type="button">Imprimer tous les certificats</button><span class="muted" id="certCount" style="align-self:center;font-size:.9rem"></span></div>
+      <div class="actions" style="justify-content:flex-start"><button class="btn small" id="certAll" type="button">Imprimer tout</button><span class="muted" id="certCount" style="align-self:center;font-size:.9rem"></span></div>
     </div>
     <div class="cert-layout">
       <div id="cList"></div>
@@ -537,6 +560,7 @@ textarea.field{resize:vertical;line-height:1.5;font-size:.92rem}
 <div class="band" aria-hidden="true"></div>
 
 <div id="printArea" aria-hidden="true"></div>
+<button class="toast" id="toast" type="button" hidden></button>
 
 <!-- Fenêtre : accès organisateur -->
 <div class="overlay" id="adminOv" hidden>
@@ -794,7 +818,8 @@ var state = (function(){
 })();
 function fixState(){ state.w = state.w||{}; state.r = state.r||{}; state.content = state.content||{c:{},p:{}}; state.content.c = state.content.c||{}; state.content.p = state.content.p||{}; state.cert = state.cert||{}; state.certNames = state.certNames||{}; }
 fixState();
-function save(){ if(!lsSet(KEY, JSON.stringify(state))){ storageOK = false; $("storageNotice").hidden = false; } }
+function save(){ if(Sync.mode==="public") return; if(!lsSet(KEY, JSON.stringify(state))){ storageOK = false; $("storageNotice").hidden = false; } schedulePush(); }
+function mkey(id,f){ return f && f.up ? id+"@"+f.up : id; }
 function W(id){ return state.w[id] || DEFAULTS[id] || {}; }
 function setW(id,patch){
   var cur = W(id), nw = {};
@@ -874,9 +899,15 @@ function linkMedia(u){
 function mediaFor(id){
   var w = W(id);
   if(w.file){
-    return mediaGet(id).then(function(b){
+    var key = mkey(id,w.file);
+    return mediaGet(key).then(function(b){
+      if(b) return b;
+      if(w.file.online && (Sync.mode==="public" || Sync.mode==="admin"))
+        return downloadMedia(id,w.file).then(function(nb){ return mediaPut(key,nb).then(function(){ return nb; }); }).catch(function(){ return null; });
+      return null;
+    }).then(function(b){
       if(!b) return linkMedia(w.url);
-      return {type:(b.type||w.file.type||"").indexOf("video")===0 ? "video" : "image", src:objUrl(id,b), label:w.file.name||"Fichier importé"};
+      return {type:(b.type||w.file.type||"").indexOf("video")===0 ? "video" : "image", src:objUrl(key,b), label:w.file.name||"Fichier importé"};
     });
   }
   return Promise.resolve(linkMedia(w.url));
@@ -1244,7 +1275,11 @@ function tryAdmin(){
   if(!code){ $("adminMsg").textContent = "Saisissez le code."; return; }
   $("adminGo").disabled = true; $("adminMsg").textContent = "Vérification…";
   unlock(code).then(function(){
+    $("adminMsg").textContent = "Connexion à la base en ligne…";
+    return connectAdmin(code);
+  }).then(function(res){
     try{ sessionStorage.setItem(KEY+"_k",code); }catch(e){}
+    if(res!=="ok") goLocal(res);
     adminOn = true; $("adminOv").hidden = true; $("adminMsg").textContent = "";
     renderPage(); renderAdmin(); showView("admin");
   }).catch(function(e){
@@ -1256,7 +1291,8 @@ $("adminCode").addEventListener("keydown",function(e){ if(e.key==="Enter") tryAd
 $("adminExit").addEventListener("click",function(){ renderPage(); showView("show"); });
 $("lockBtn").addEventListener("click",function(){
   try{ sessionStorage.removeItem(KEY+"_k"); }catch(e){}
-  DEFAULTS = {}; unlocked = false; adminOn = false; updateLock(); renderPage(); showView("show");
+  DEFAULTS = {}; unlocked = false; adminOn = false; updateLock(); setSyncStatus("");
+  leaveAdmin().then(function(){ renderPage(); }); showView("show");
 });
 
 function adminTiles(){
@@ -1281,7 +1317,7 @@ function renderAdmin(){
             '<div><label class="fl" for="n-'+esc(p.id)+'">Nom du/des gagnant·e·s</label><input class="field" id="n-'+esc(p.id)+'" data-f="name" value="'+esc(w.name||"")+'" list="dl-'+esc(p.id)+'" autocomplete="off" placeholder="'+(p.cands.length?"Choisir ou taper un nom":"Ex. Prénom Nom")+'">'+
               (p.cands.length ? '<datalist id="dl-'+esc(p.id)+'">'+p.cands.map(function(k){ return '<option value="'+esc(k.n)+'">'; }).join("")+'</datalist>' : '')+'</div>'+
             '<div><label class="fl" for="c-'+esc(p.id)+'">Mention affichée sous le nom (facultatif)</label><input class="field" id="c-'+esc(p.id)+'" data-f="cite" value="'+esc(w.cite||"")+'" maxlength="200" placeholder="Ex. 68 invitations envoyées !"></div>'+
-            '<div><label class="fl" for="u-'+esc(p.id)+'">Lien photo ou vidéo</label><input class="field" id="u-'+esc(p.id)+'" data-f="url" value="'+esc(w.url||"")+'" placeholder="YouTube, Google Drive, Vimeo, .jpg, .mp4…" inputmode="url"></div>'+
+            '<div><label class="fl" for="u-'+esc(p.id)+'">Lien photo ou vidéo</label><input class="field" id="u-'+esc(p.id)+'" data-f="url" value="'+esc(w.url||"")+'" placeholder="Lien Google Drive, YouTube, Vimeo, .jpg, .mp4…" inputmode="url"></div>'+
             '<div><label class="fl" for="f-'+esc(p.id)+'">…ou importer un fichier (prioritaire sur le lien)</label><input id="f-'+esc(p.id)+'" type="file" accept="image/*,video/*" data-f="file"></div>'+
           '</div>'+
           '<div class="ed-prev"></div>'+
@@ -1308,7 +1344,7 @@ function refreshEditor(id){
     if(m.type==="iframe"){ prev.textContent = m.label+" : s’affichera lors de la révélation."; return; }
     var el = mediaNode(m,{muted:true}); if(m.type==="image") el.onerror = function(){ prev.textContent = "Image introuvable à cette adresse : vérifiez le lien (il doit pointer directement vers l’image)."; };
     prev.appendChild(el);
-    var s = document.createElement("span"); s.textContent = (w.file ? "Fichier : "+(w.file.name||"")+(w.file.size?" ("+(w.file.size/1048576).toFixed(1)+" Mo)":"") : m.label); prev.appendChild(s);
+    var s = document.createElement("span"); s.textContent = (w.file ? "Fichier : "+(w.file.name||"")+(w.file.size?" ("+(w.file.size/1048576).toFixed(1)+" Mo)":"")+(w.file.online ? " · en ligne ✓" : " · sur cet ordinateur seulement") : m.label); prev.appendChild(s);
   });
 }
 var saveTimers = {};
@@ -1329,18 +1365,26 @@ $("aList").addEventListener("change",function(e){
   var ed = e.target.closest(".ed"), id = ed.getAttribute("data-id"), file = e.target.files && e.target.files[0];
   if(!file) return;
   if(!/^(image|video)\//.test(file.type)){ ed.querySelector(".saved").textContent = "Format non reconnu"; return; }
-  ed.querySelector(".saved").textContent = "Import…";
-  mediaPut(id,file).then(function(ok){
-    setW(id,{file:{name:file.name,type:file.type,size:file.size}});
-    ed.querySelector(".saved").textContent = ok ? "Enregistré" : "Gardé jusqu’à fermeture";
+  var sv = ed.querySelector(".saved"), up = Date.now().toString(36);
+  sv.textContent = "Import…";
+  mediaPut(id+"@"+up,file).then(function(ok){
+    setW(id,{file:{name:file.name,type:file.type,size:file.size,up:up}});
     e.target.value = ""; refreshEditor(id); adminTiles();
+    if(Sync.mode==="admin" && file.size<=MAX_UPLOAD){
+      sv.textContent = "Envoi en ligne…";
+      uploadOne(id,function(k,t){ sv.textContent = "Envoi en ligne "+Math.round(100*k/t)+" %"; }).then(function(done){
+        sv.textContent = done ? "En ligne ✓" : "Envoi impossible : gardé sur cet ordinateur"; refreshEditor(id);
+      });
+    } else if(Sync.mode==="admin"){
+      sv.textContent = "Plus de 40 Mo : gardé sur cet ordinateur (préférez un lien Google Drive)";
+    } else sv.textContent = ok ? "Enregistré sur cet ordinateur" : "Gardé jusqu’à fermeture";
   });
 });
 $("aList").addEventListener("click",function(e){
   var b = e.target.closest("[data-a]"); if(!b) return;
   var id = b.closest(".ed").getAttribute("data-id"), a = b.getAttribute("data-a");
   if(a==="test") openStage(P_BY_ID[id].i,false,true);
-  else if(a==="rmfile"){ mediaDel(id).then(function(){ setW(id,{file:null}); refreshEditor(id); adminTiles(); }); }
+  else if(a==="rmfile"){ var fk = mkey(id,W(id).file); if(Sync.mode==="admin") rpc("ceremonie_media_del",{p_code:Sync.code,p_id:id}).catch(function(){}); mediaDel(fk).then(function(){ setW(id,{file:null}); refreshEditor(id); adminTiles(); }); }
   else if(a==="unreveal"){ delete state.r[id]; save(); refreshEditor(id); adminTiles(); }
 });
 function applyFilter(){
@@ -1358,14 +1402,14 @@ $("aFilter").addEventListener("input",applyFilter);
 
 $("resetRevealBtn").addEventListener("click",function(){
   var b = this;
-  if(b.dataset.confirm){ state.r = {}; save(); delete b.dataset.confirm; b.textContent = "Remettre toutes les révélations à zéro"; renderAdmin(); $("adminMsgTop").textContent = "Toutes les révélations ont été remises à zéro."; return; }
+  if(b.dataset.confirm){ state.r = {}; save(); Sync.force = true; delete b.dataset.confirm; b.textContent = "Remettre toutes les révélations à zéro"; renderAdmin(); $("adminMsgTop").textContent = "Toutes les révélations ont été remises à zéro."; return; }
   b.dataset.confirm = "1"; b.textContent = "Cliquer encore pour confirmer";
   setTimeout(function(){ delete b.dataset.confirm; b.textContent = "Remettre toutes les révélations à zéro"; },4000);
 });
 $("wipeBtn").addEventListener("click",function(){ $("wipeBox").hidden = false; });
 $("wipeNo").addEventListener("click",function(){ $("wipeBox").hidden = true; });
 $("wipeYes").addEventListener("click",function(){
-  state = {w:{},r:{}}; fixState(); applyContent(); save();
+  state = {w:{},r:{}}; fixState(); applyContent(); save(); Sync.force = true;
   mediaClearAll().then(function(){ $("wipeBox").hidden = true; renderAdmin(); $("adminMsgTop").textContent = "Toutes les saisies ont été effacées."; });
 });
 
@@ -1380,7 +1424,7 @@ function dataURLToBlob(d){
 $("exportBtn").addEventListener("click",function(){
   var msg = $("adminMsgTop"); msg.textContent = "Préparation de la sauvegarde…";
   var ids = PRIZES.filter(function(p){ return W(p.id).file; }).map(function(p){ return p.id; });
-  Promise.all(ids.map(function(id){ return mediaGet(id).then(function(b){ return b ? blobToDataURL(b).then(function(d){ return [id,d]; }) : null; }); }))
+  Promise.all(ids.map(function(id){ return mediaGet(mkey(id,W(id).file)).then(function(b){ return b ? blobToDataURL(b).then(function(d){ return [id,d]; }) : null; }); }))
   .then(function(arr){
     var media = {}; arr.forEach(function(x){ if(x) media[x[0]] = x[1]; });
     var data = {app:"inyange-ceremonie",v:1,exported:new Date().toISOString(),state:state,media:media};
@@ -1398,11 +1442,13 @@ $("importFile").addEventListener("change",function(){
   f.text().then(function(txt){
     var d = JSON.parse(txt);
     if(!d || d.app!=="inyange-ceremonie" || !d.state || !d.state.w) throw new Error("format");
-    state = d.state; fixState(); applyContent(); save();
+    state = d.state; fixState();
+    Object.keys(state.w).forEach(function(id){ var f = state.w[id].file; if(f){ if(!f.up) f.up = Date.now().toString(36)+id.replace(/\W/g,""); f.online = false; } });
+    applyContent(); save(); Sync.force = true;
     return mediaClearAll().then(function(){
-      return Promise.all(Object.keys(d.media||{}).map(function(id){ var b = dataURLToBlob(d.media[id]); return b ? mediaPut(id,b) : null; }));
+      return Promise.all(Object.keys(d.media||{}).map(function(id){ var b = dataURLToBlob(d.media[id]); return b ? mediaPut(mkey(id,(state.w[id]||{}).file),b) : null; }));
     });
-  }).then(function(){ renderAdmin(); msg.textContent = "Sauvegarde importée."; })
+  }).then(function(){ renderAdmin(); msg.textContent = "Sauvegarde importée."+(Sync.mode==="admin" ? " Envoi en ligne en cours…" : ""); if(Sync.mode==="admin") uploadPending().then(function(){ renderAdmin(); }); })
     .catch(function(){ msg.textContent = "Ce fichier n’est pas une sauvegarde valide de la cérémonie."; });
   this.value = "";
 });
@@ -1439,6 +1485,214 @@ $("vImport").addEventListener("click",function(){
     renderAdmin();
   }).catch(function(){ btn.disabled = false; msg.textContent = "Connexion à la base de votes impossible (hors ligne ?)."; });
 });
+
+/* ================= ENREGISTREMENT EN LIGNE (Supabase) =================
+   Public : reçoit les textes et les lauréats déjà dévoilés (rien d'autre).
+   Organisateur (code) : chaque modification est envoyée automatiquement ; les autres appareils la reçoivent. */
+var Sync = {mode:"off", code:null, version:null, dirty:false, force:false, busy:false, timer:null, poll:null, localState:null, status:"", seenR:{}};
+var CHUNK = 1400000;               /* taille d'un morceau de fichier envoyé (caractères base64) */
+var MAX_UPLOAD = 40*1048576;       /* 40 Mo par fichier */
+
+function rpc(name, body){
+  var headers = {"Content-Type":"application/json","apikey":SUPABASE_KEY};
+  if(SUPABASE_KEY.indexOf("eyJ")===0) headers.Authorization = "Bearer "+SUPABASE_KEY;
+  return fetch(SUPABASE_URL.replace(/\/+$/,"")+"/rest/v1/rpc/"+name,{method:"POST",headers:headers,body:JSON.stringify(body||{})})
+    .then(function(r){
+      if(r.status===404) { var e = new Error("missing"); e.missing = true; throw e; }
+      if(!r.ok) throw new Error("http "+r.status);
+      return r.json();
+    });
+}
+function setSyncStatus(txt, kind){
+  Sync.status = txt;
+  var el = $("syncState"); if(el){ el.textContent = txt; el.className = "sync "+(kind||""); el.hidden = !txt; }
+  var el2 = $("adminSync"); if(el2){ el2.textContent = txt; el2.className = "sync "+(kind||""); }
+}
+function emptyState(){ var s = {w:{},r:{}}; return s; }
+function isEmptyData(d){ return !d || !Object.keys(d).length || (!Object.keys(d.w||{}).length && !Object.keys(d.r||{}).length && !Object.keys((d.content||{}).c||{}).length && !Object.keys((d.content||{}).p||{}).length); }
+
+/* Ce que le public a le droit de voir : les lauréats des prix déjà dévoilés. */
+function computePub(){
+  var pub = {};
+  Object.keys(state.r).forEach(function(id){
+    var w = W(id); if(!w.name) return;
+    var o = {name:w.name}; if(w.cite) o.cite = w.cite; if(w.url) o.url = w.url;
+    if(w.file && w.file.online) o.file = {type:w.file.type, name:w.file.name, up:w.file.up, online:true};
+    pub[id] = o;
+  });
+  return pub;
+}
+function serverData(){
+  return {w:state.w, r:state.r, content:state.content, cert:state.cert, certNames:state.certNames, pub:computePub()};
+}
+function mergeData(srv, loc){
+  var out = JSON.parse(JSON.stringify(srv||{}));
+  out.w = Object.assign({}, out.w||{}, loc.w||{});
+  out.r = Object.assign({}, out.r||{}, loc.r||{});
+  out.content = out.content||{c:{},p:{}};
+  out.content.c = Object.assign({}, out.content.c||{}, (loc.content||{}).c||{});
+  out.content.p = Object.assign({}, out.content.p||{}, (loc.content||{}).p||{});
+  out.cert = Object.assign({}, out.cert||{}, loc.cert||{});
+  out.certNames = Object.assign({}, out.certNames||{}, loc.certNames||{});
+  return out;
+}
+function adoptState(d){
+  state = {w:d.w||{}, r:d.r||{}, content:d.content, cert:d.cert, certNames:d.certNames};
+  fixState(); applyContent();
+  lsSet(KEY, JSON.stringify(state));
+}
+
+/* --- Envoi (organisateur) --- */
+function schedulePush(force){
+  if(Sync.mode!=="admin") return;
+  Sync.dirty = true; if(force) Sync.force = true;
+  setSyncStatus("Enregistrement…","busy");
+  clearTimeout(Sync.timer); Sync.timer = setTimeout(push, 900);
+}
+function push(){
+  if(Sync.mode!=="admin" || !Sync.dirty) return;
+  if(Sync.busy){ clearTimeout(Sync.timer); Sync.timer = setTimeout(push, 600); return; }
+  Sync.busy = true; Sync.dirty = false;
+  var force = Sync.force; Sync.force = false;
+  rpc("ceremonie_admin_save",{p_code:Sync.code, p_data:serverData(), p_version: force ? null : Sync.version})
+  .then(function(r){
+    if(r && r.ok){ Sync.version = r.version; setSyncStatus("Enregistré en ligne ✓","ok"); return; }
+    if(r && r.error==="conflict"){
+      /* Un autre appareil a enregistré entre-temps : on fusionne puis on renvoie. */
+      return rpc("ceremonie_admin_get",{p_code:Sync.code}).then(function(g){
+        if(!g || !g.ok) throw new Error("get");
+        var keepR = state.r;
+        adoptState(mergeData(g.data, serverData())); if(force) state.r = keepR;
+        Sync.version = g.version; Sync.dirty = true; refreshViews();
+      });
+    }
+    if(r && r.error==="bad_code"){ Sync.mode = "local"; setSyncStatus("Code refusé par la base : modifications gardées dans ce navigateur","err"); return; }
+    throw new Error("save");
+  })
+  .catch(function(){ Sync.dirty = true; setSyncStatus("Hors ligne : nouvel essai automatique…","err"); })
+  .then(function(){ Sync.busy = false; if(Sync.dirty){ clearTimeout(Sync.timer); Sync.timer = setTimeout(push, 4000); } });
+}
+
+/* --- Réception (tous) --- */
+function pollOnce(){
+  if(Sync.mode==="admin"){
+    if(Sync.dirty || Sync.busy) return;
+    rpc("ceremonie_admin_get",{p_code:Sync.code}).then(function(g){
+      if(!g || !g.ok || Sync.dirty || Sync.busy) return;
+      if(g.version!==Sync.version){ Sync.version = g.version; adoptState(g.data||{}); refreshViews(); }
+      setSyncStatus("Enregistré en ligne ✓","ok");
+    }).catch(function(){ setSyncStatus("Hors ligne : nouvel essai automatique…","err"); });
+  } else if(Sync.mode==="public"){
+    rpc("ceremonie_public").then(function(r){ if(r && r.ok && r.version!==Sync.version) applyPublic(r, true); }).catch(function(){});
+  }
+}
+function startPolling(){ clearInterval(Sync.poll); Sync.poll = setInterval(pollOnce, 8000); }
+function applyPublic(r, notify){
+  Sync.version = r.version;
+  var before = state.r || {};
+  state = {w:r.pub||{}, r:r.r||{}, content:r.content||{c:{},p:{}}, cert:{}, certNames:{}};
+  fixState(); applyContent();
+  refreshViews();
+  if(notify){
+    Object.keys(state.r).forEach(function(id){
+      if(!before[id] && P_BY_ID[id] && state.w[id]) toast(P_BY_ID[id], state.w[id].name);
+    });
+  }
+}
+function refreshViews(){
+  if(!$("v-show").hidden) renderPage();
+  if(!$("v-admin").hidden){
+    var a = document.activeElement, typing = a && /INPUT|TEXTAREA/.test(a.tagName) && $("v-admin").contains(a);
+    if(!typing) renderAdmin(); else adminTiles();
+  }
+  updateProgress();
+}
+function toast(p, name){
+  var t = $("toast"); if(!t) return;
+  t.innerHTML = '<span class="eyebrow" style="margin:0">Nouveau lauréat dévoilé</span><b>'+esc(name)+'</b><small>'+esc(p.cat.short+(p.sub?' · '+p.sub:''))+'</small>';
+  t.hidden = false; t.onclick = function(){ t.hidden = true; var el = $("p-"+p.id); if(el) el.scrollIntoView({block:"center"}); };
+  clearTimeout(t._h); t._h = setTimeout(function(){ t.hidden = true; }, 9000);
+}
+
+/* --- Connexion --- */
+function startOnline(){
+  return rpc("ceremonie_public").then(function(r){
+    if(!r || !r.ok) throw new Error("bad");
+    Sync.localState = state;
+    if(Sync.mode==="admin") return;
+    Sync.mode = "public"; applyPublic(r, false); startPolling();
+  }).catch(function(e){ Sync.mode = "off"; });
+}
+function connectAdmin(code){
+  return rpc("ceremonie_admin_get",{p_code:code}).then(function(g){
+    if(!g || !g.ok){
+      if(g && g.error==="bad_code") return "bad_code";
+      return "error";
+    }
+    Sync.code = code; Sync.mode = "admin"; Sync.version = g.version;
+    var local = Sync.localState || state;
+    if(isEmptyData(g.data)){ state = local; fixState(); applyContent(); schedulePush(true); }
+    else { adoptState(g.data); }
+    setSyncStatus("Enregistré en ligne ✓","ok");
+    startPolling(); uploadPending();
+    return "ok";
+  }).catch(function(e){ return e && e.missing ? "missing" : "error"; });
+}
+function leaveAdmin(){
+  Sync.code = null; clearTimeout(Sync.timer);
+  if(Sync.mode==="admin" || Sync.mode==="local"){ Sync.mode = "off"; state = Sync.localState || state; return startOnline(); }
+  return Promise.resolve();
+}
+
+/* --- Fichiers importés : envoi et lecture par morceaux --- */
+function uploadMedia(id, blob, up, onProgress){
+  return blobToDataURL(blob).then(function(d){
+    var b64 = d.slice(d.indexOf(",")+1), total = Math.max(1, Math.ceil(b64.length/CHUNK)), k = 0;
+    function next(){
+      if(k>=total) return true;
+      return rpc("ceremonie_media_put",{p_code:Sync.code, p_id:id, p_part:k, p_total:total, p_mime:blob.type||"application/octet-stream", p_name:(W(id).file||{}).name||"", p_up:up, p_data:b64.substr(k*CHUNK, CHUNK)})
+        .then(function(r){ if(!r || !r.ok) throw new Error(r && r.error || "put"); k++; if(onProgress) onProgress(k,total); return next(); });
+    }
+    return next();
+  });
+}
+function downloadMedia(id, f){
+  var parts = [];
+  function get(k){
+    return rpc("ceremonie_media_get",{p_id:id, p_part:k, p_code:Sync.code}).then(function(r){
+      if(!r || !r.ok) throw new Error(r && r.error || "get");
+      if(f.up && r.up!==f.up) throw new Error("stale");
+      parts.push(r.data);
+      return k+1 < r.total ? get(k+1) : null;
+    });
+  }
+  return get(0).then(function(){ return dataURLToBlob("data:"+(f.type||"application/octet-stream")+";base64,"+parts.join("")); });
+}
+var uploading = {};
+function uploadOne(id, onProgress){
+  var w = W(id); if(!w.file || w.file.online || uploading[id] || Sync.mode!=="admin") return Promise.resolve(false);
+  if((w.file.size||0) > MAX_UPLOAD) return Promise.resolve(false);
+  return mediaGet(mkey(id,w.file)).then(function(b){
+    if(!b) return false;
+    uploading[id] = true; var up = w.file.up;
+    return uploadMedia(id, b, up, onProgress).then(function(){
+      var cur = W(id); if(cur.file && cur.file.up===up){ setW(id,{file:Object.assign({}, cur.file, {online:true})}); }
+      return true;
+    }).catch(function(){ return false; }).then(function(ok){ delete uploading[id]; return ok; });
+  });
+}
+function uploadPending(){
+  var ids = PRIZES.map(function(p){ return p.id; }).filter(function(id){ var w = W(id); return w.file && !w.file.online; });
+  return ids.reduce(function(pr,id){ return pr.then(function(){ return uploadOne(id).then(function(){ if(!$("v-admin").hidden) refreshEditor(id); }); }); }, Promise.resolve());
+}
+
+function goLocal(res){
+  if(Sync.mode==="public"){ clearInterval(Sync.poll); state = Sync.localState || state; fixState(); applyContent(); }
+  Sync.mode = "local";
+  setSyncStatus(res==="bad_code" ? "Code refusé par la base en ligne : modifications gardées dans ce navigateur"
+    : res==="missing" ? "Base en ligne pas encore installée : modifications gardées dans ce navigateur"
+    : "Hors ligne : modifications gardées dans ce navigateur", "err");
+}
 
 /* ================= DÉVERROUILLAGE DES LAURÉATS ================= */
 var unlocked = false;
@@ -1606,6 +1860,7 @@ function renderCerts(){
     return '<div class="ed-cat"><h3>'+esc(c.num||c.n)+' · '+esc(c.short)+'</h3>'+rows+'</div>';
   }).join("");
   $("certCount").textContent = plural(total,"certificat","certificats")+" au total";
+  $("certCountTop").textContent = plural(total,"certificat","certificats")+" prêts à imprimer";
   if(!certSel){ var first = PRIZES.filter(function(p){ return certNames(p).length; })[0]; certSel = first ? first.id : null; }
   previewCert();
 }
@@ -1658,11 +1913,13 @@ document.querySelector(".cert-cfg").addEventListener("input",function(e){
   state.cert[k] = e.target.type==="checkbox" ? e.target.checked : e.target.value;
   save(); previewCert();
 });
-$("certAll").addEventListener("click",function(){
+function printAll(){
   var list = [];
   PRIZES.forEach(function(p){ certNames(p).forEach(function(n){ list.push({p:p,name:n}); }); });
   printCerts(list);
-});
+}
+$("certAll").addEventListener("click",printAll);
+$("certAllTop").addEventListener("click",printAll);
 
 /* ================= DÉMARRAGE ================= */
 if(!storageOK) $("storageNotice").hidden = false;
@@ -1670,7 +1927,13 @@ CATS.forEach(function(c){ c._o = {title:c.title, alt:c.alt||"", short:c.short, c
   c.prizes.forEach(function(p){ p._o = {sub:p.sub||"", pdesc:(p.pdesc||[]).slice()}; }); });
 applyContent();
 var savedCode = null; try{ savedCode = sessionStorage.getItem(KEY+"_k"); }catch(e){}
-if(savedCode) unlock(savedCode).then(function(){ adminOn = true; renderPage(); }).catch(function(){});
+startOnline().then(function(){
+  if(!savedCode) return;
+  return unlock(savedCode).then(function(){ return connectAdmin(savedCode); }).then(function(res){
+    if(res!=="ok") goLocal(res);
+    adminOn = true; renderPage();
+  });
+}).catch(function(){});
 renderProgramme(); ceremonyChip(); setInterval(ceremonyChip, 30000);
 renderPage();
 })();
